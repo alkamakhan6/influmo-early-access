@@ -18,6 +18,32 @@
   <meta name="twitter:card" content="summary_large_image" />
 
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Contact widget styles (scoped) -->
+  <style>
+    :root{ --gold:#d4af37; --ring:rgba(212,175,55,.35); --text:#f3f3f3; --panel:#111214; }
+    .contact-widget{ position:relative; display:inline-block; }
+    .btn.contact-btn{
+      background:var(--gold); color:#0b0b0b; border:none; border-radius:12px;
+      padding:10px 16px; font-weight:700; cursor:pointer;
+    }
+    .btn.contact-btn:focus-visible{ outline:3px solid var(--ring); outline-offset:2px; }
+    .contact-menu{
+      position:absolute; top:calc(100% + 8px); right:0; min-width:220px; z-index:20;
+      background:linear-gradient(180deg,#121316,#0f1012);
+      border:1px solid #1c1d21; border-radius:14px; box-shadow:0 12px 30px rgba(0,0,0,.45);
+      padding:8px;
+    }
+    .contact-menu[hidden]{ display:none; }
+    .menu-item{
+      display:block; padding:10px 12px; border-radius:10px; color:var(--text);
+      text-decoration:none; border:1px solid transparent;
+    }
+    .menu-item:hover{ border-color:var(--gold); box-shadow:0 6px 18px var(--ring); }
+    /* Optional: make link-styled buttons look like nav links */
+    .as-link{ background:none; border:none; padding:0; color:inherit; font:inherit; cursor:pointer; }
+    @media (max-width:600px){ .contact-menu{ left:0; right:auto; width:92vw; } }
+  </style>
 </head>
 <body>
   <!-- Header / minimal nav -->
@@ -30,7 +56,18 @@
       <nav class="top-links">
         <a href="/about.html">About</a>
         <a href="https://www.instagram.com/influmo.in/" target="_blank" rel="noopener">Instagram</a>
-        <a href="tel:+919692350383" class="cta">Contact: 9692350383</a>
+
+        <!-- Contact widget (desktop) -->
+        <div class="contact-widget" data-instagram="influmo.in" data-email="help@influmo.in" data-phone="+919692350383">
+          <button class="btn contact-btn" id="contactBtn" aria-haspopup="true" aria-expanded="false" aria-controls="contactMenu">
+            Contact
+          </button>
+          <div class="contact-menu" id="contactMenu" role="menu" hidden>
+            <a class="menu-item" id="igLink" role="menuitem" target="_blank" rel="noopener">Instagram</a>
+            <a class="menu-item" id="mailLink" role="menuitem">Email</a>
+            <a class="menu-item" id="callLink" role="menuitem">Call us</a>
+          </div>
+        </div>
       </nav>
 
       <!-- mobile menu -->
@@ -40,7 +77,8 @@
     <nav class="mobile-menu" id="mobileMenu" aria-hidden="true">
       <a href="/about.html">About</a>
       <a href="https://www.instagram.com/influmo.in/" target="_blank" rel="noopener">Instagram</a>
-      <a href="tel:+919692350383">Contact: 9692350383</a>
+      <!-- Use a trigger that opens the same contact menu -->
+      <a href="#" class="contact-open">Contact</a>
     </nav>
   </header>
 
@@ -58,7 +96,8 @@
         <div class="hero-actions">
           <a class="btn solid" href="/about.html">About Us</a>
           <a class="btn ghost" href="https://www.instagram.com/influmo.in/" target="_blank" rel="noopener">Instagram</a>
-          <a class="btn ghost" href="tel:+919692350383">Contact: 9692350383</a>
+          <!-- Trigger to open the contact menu; no phone number shown -->
+          <button class="btn ghost contact-open" type="button">Contact</button>
         </div>
       </div>
     </section>
@@ -77,7 +116,7 @@
           <li>Mobile-first experience — built for creators on the go.</li>
         </ul>
         <p class="muted small">
-          MVP in progress. Early partners welcome — DM us on Instagram or call <a href="tel:+919692350383">+91 96923 50383</a>.
+          MVP in progress. Early partners welcome — DM us on Instagram or email <a href="mailto:help@influmo.in">help@influmo.in</a>.
         </p>
       </div>
     </section>
@@ -90,7 +129,8 @@
       <div class="footer-links">
         <a href="/about.html">About</a>
         <a href="https://www.instagram.com/influmo.in/" target="_blank" rel="noopener">Instagram</a>
-        <a href="tel:+919692350383">+91 96923 50383</a>
+        <!-- Trigger instead of phone number -->
+        <a href="#" class="contact-open">Contact</a>
       </div>
     </div>
   </footer>
@@ -126,6 +166,62 @@
         }
       });
     });
+
+    // -------------------------------
+    // Contact widget wiring (Instagram / Email / Call)
+    // -------------------------------
+    (() => {
+      const widget = document.querySelector('.contact-widget');
+      const cBtn   = document.getElementById('contactBtn');
+      const cMenu  = document.getElementById('contactMenu');
+      const ig     = document.getElementById('igLink');
+      const mail   = document.getElementById('mailLink');
+      const call   = document.getElementById('callLink');
+
+      if (!widget || !cBtn || !cMenu) return;
+
+      // Config from data-attributes
+      const igHandle = widget.dataset.instagram || 'influmo.in';
+      const email    = widget.dataset.email || 'help@influmo.in';
+      const phone    = widget.dataset.phone || '';
+
+      // Build links (tel only attached when menu opens)
+      ig.href   = `https://instagram.com/${encodeURIComponent(igHandle)}`;
+      mail.href = `mailto:${email}?subject=${encodeURIComponent('Hello from Influmo site')}`;
+
+      function openContactMenu(){
+        cMenu.hidden = false;
+        cBtn.setAttribute('aria-expanded', 'true');
+        if (phone) call.href = 'tel:' + phone.replace(/\s|-/g,'');
+      }
+      function closeContactMenu(){
+        cMenu.hidden = true;
+        cBtn.setAttribute('aria-expanded', 'false');
+      }
+
+      cBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cMenu.hidden ? openContactMenu() : closeContactMenu();
+      });
+      document.addEventListener('click', (e) => {
+        if (!widget.contains(e.target)) closeContactMenu();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeContactMenu();
+      });
+
+      // Any .contact-open anywhere opens the same menu
+      document.querySelectorAll('.contact-open').forEach(el=>{
+        el.addEventListener('click', (e)=>{
+          e.preventDefault();
+          // Close mobile menu if open, then open contact menu
+          try { closeMenu(); } catch(e){}
+          openContactMenu();
+          // Ensure it's visible on small screens
+          if (window.innerWidth < 760) widget.scrollIntoView({behavior:'smooth', block:'start'});
+        });
+      });
+    })();
   </script>
 </body>
 </html>
