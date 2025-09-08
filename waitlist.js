@@ -1,5 +1,4 @@
-// Early Access Waitlist — 2-step (email -> role), single insert + counts
-
+// Two-step waitlist (email -> role), single insert + live counts/breakdown
 const SUPABASE_URL  = "https://iixpugcjoafrypjspqaf.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpeHB1Z2Nqb2FmcnlwanNwcWFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNzQ0MjIsImV4cCI6MjA3MTY1MDQyMn0.lZnEkXtVSSnxtCtXjFEseAxvzHgBfvdPOwS118hN8ak";
 
@@ -33,18 +32,10 @@ function getUTM(){
 }
 
 async function refreshCount(){
-  try {
-    const { data } = await sb.rpc('waitlist_count');
-    if (typeof data==='number' && countEl) countEl.textContent = data.toLocaleString();
-  } catch {}
+  try { const { data } = await sb.rpc('waitlist_count'); if (typeof data==='number' && countEl) countEl.textContent = data.toLocaleString(); } catch {}
 }
 async function refreshBreakdown(){
-  try {
-    const { data } = await sb.rpc('waitlist_breakdown');
-    const b = data || {};
-    if (breakdownEl) breakdownEl.textContent =
-      `${b.total||0} total • ${b.influencer||0} creators • ${b.crew||0} crew • ${b.brand||0} brands`;
-  } catch {}
+  try { const { data } = await sb.rpc('waitlist_breakdown'); const b=data||{}; if (breakdownEl) breakdownEl.textContent = `${b.total||0} total • ${b.influencer||0} creators • ${b.crew||0} crew • ${b.brand||0} brands`; } catch {}
 }
 
 nextBtn?.addEventListener('click', () => {
@@ -66,15 +57,7 @@ form?.addEventListener('submit', async (e) => {
   if (!isEmail(email)) { msgEl.style.color='#f66'; msgEl.textContent='Please enter a valid email.'; step2.style.display='none'; step1.style.display='grid'; return; }
   if (!role) { msgEl.style.color='#f66'; msgEl.textContent='Please select your role.'; joinBtn.disabled=false; joinBtn.textContent='Get early access'; return; }
 
-  const utm = getUTM();
-  const payload = {
-    email, role,
-    offer_code: offerCode(),
-    offer_months: 3,
-    offer_rate: 0,
-    offer_expires_at: offerExpires(90),
-    ...utm
-  };
+  const payload = { email, role, offer_code: offerCode(), offer_months: 3, offer_rate: 0, offer_expires_at: offerExpires(90), ...getUTM() };
 
   try {
     const { error } = await sb.from('waitlist').insert(payload).single();
@@ -93,5 +76,4 @@ form?.addEventListener('submit', async (e) => {
   }
 });
 
-document.getElementById('year')?.textContent = new Date().getFullYear();
 refreshCount(); refreshBreakdown();
