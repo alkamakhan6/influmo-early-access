@@ -98,4 +98,34 @@ a{ color:inherit; text-decoration:none; }
   .team-member { flex-direction: column; align-items: center; text-align: center; }
   .profile-img { margin-bottom: 8px; }
 }
+/* === Early Access landing styles === */
+:root{--bg:#0b0b0b;--fg:#f5f5f5;--muted:#bdbdbd;--gold:#d4af37;--line:#1f1f1f}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
+a{color:var(--gold);text-decoration:none}
+.container{max-width:1100px;margin:0 auto;padding:24px}
+.nav{border-bottom:1px solid var(--line)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between}
+.brand{font-weight:700;letter-spacing:.4px;display:flex;align-items:center;gap:8px}
+.subtle{color:var(--muted)}
+.hero{display:grid;grid-template-columns:1.2fr .8fr;gap:24px;padding-top:40px}
+@media (max-width:900px){.hero{grid-template-columns:1fr}}
+.h1{font-size:40px;margin:8px 0 8px}
+.h2{font-size:22px;margin:0 0 8px}
+.lead{color:#e7e7e7;margin-bottom:16px}
+.card{background:linear-gradient(180deg,#141414,#0e0e0e);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.form{display:grid;gap:10px;margin-top:8px}
+input,select,button{font:inherit}
+input,select{padding:12px 14px;border-radius:12px;border:1px solid #272727;background:#101010;color:#fafafa}
+button.btn{padding:12px 16px;border-radius:12px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer}
+button.btn:hover{background:rgba(212,175,55,.12)}
+.msg{min-height:18px}
+.small{font-size:12px;color:var(--muted)}
+.proof{margin-top:14px}
+.count{font-size:18px;margin-bottom:4px}
+.muted{color:var(--muted)}
+.footer{border-top:1px solid var(--line);padding:28px 24px;color:var(--muted)}
+.honeypot{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.benefits{margin:6px 0 0 18px}
+.benefits li{margin:6px 0}
 
