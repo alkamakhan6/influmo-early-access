@@ -128,4 +128,6 @@ button.btn:hover{background:rgba(212,175,55,.12)}
 .honeypot{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
 .benefits{margin:6px 0 0 18px}
 .benefits li{margin:6px 0}
+[data-step][hidden]{display:none !important;}
+.honeypot{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;}
 
