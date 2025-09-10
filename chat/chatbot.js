@@ -1,18 +1,18 @@
 /* ========= Basic Config ========= */
 const CONFIG = {
   brand: "Influmo",
-  website: "https://influmo.in", // change if needed
+  website: "https://influmo.in",
   instagram: "https://instagram.com/influmo.in",
   helpEmail: "help@influmo.in",
   phone: "+91 9692350383",
 
   // Optional Supabase (enable to log leads/messages)
   supabase: {
-    url: "https://YOUR-PROJECT.supabase.co",
-    anonKey: "YOUR-ANON-KEY",
+    url: "https://iixpugcjoafrypjspqaf.supabase.co",
+    anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpeHB1Z2Nqb2FmcnlwanNwcWFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNzQ0MjIsImV4cCI6MjA3MTY1MDQyMn0.lZnEkXtVSSnxtCtXjFEseAxvzHgBfvdPOwS118hN8ak",
     tableMessages: "chat_messages",
     tableLeads: "chat_leads",
-    enabled: false // set true after filling URL & key
+    enabled: false // set true after filling URL & key and adding RLS policies
   }
 };
 
@@ -28,41 +28,50 @@ const $quick = document.getElementById("influmo-quick");
 /* ========= State ========= */
 const STATE = {
   opened: false,
-  thread: [], // {role:'agent'|'user', text, html}
+  thread: [], // UI history: {role:'agent'|'user', text, html}
   user: {
     id: getOrSetAnonId(),
     name: localStorage.getItem("influmo_name") || null,
     role: localStorage.getItem("influmo_role") || null
   }
 };
-// keep last few turns for context
-const thread = []; // items like { role: 'user'|'assistant', content: '...' }
 
+// AI conversation context: { role:'user'|'assistant', content:string }
+const aiThread = [];
+
+/* ========= Cost Guardrail ========= */
+function canUseAI(limit = 20){
+  const key = "influmo_ai_uses";
+  const today = new Date().toDateString();
+  const rec = JSON.parse(localStorage.getItem(key) || "{}");
+  if (rec.date !== today) { rec.date = today; rec.count = 0; }
+  if (rec.count >= limit) return false;
+  rec.count += 1;
+  localStorage.setItem(key, JSON.stringify(rec));
+  return true;
+}
+
+/* ========= AI Caller (via your /api/chat) ========= */
 async function askAI(userText) {
-  // add the user's new message to the local thread
-  thread.push({ role: 'user', content: userText });
+  aiThread.push({ role: "user", content: userText });
+  const lastTurns = aiThread.slice(-8);
 
-  // only send the last ~8 turns to keep token usage small
-  const lastTurns = thread.slice(-8);
-
-  const rsp = await fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const rsp = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: 'gpt-3.5-turbo',
+      model: "gpt-3.5-turbo",
       temperature: 0.4,
       max_tokens: 300,
       messages: lastTurns
     })
   });
 
-  const data = await rsp.json();
-  if (!rsp.ok) throw new Error(data?.error || 'AI call failed');
+  const data = await rsp.json().catch(()=> ({}));
+  if (!rsp.ok) throw new Error(data?.error || "AI call failed");
 
-  const reply = data?.message?.content || 'Sorry—no reply.';
-  // store assistant reply back in thread so the model has context next turn
-  thread.push({ role: 'assistant', content: reply });
-
+  const reply = data?.message?.content || "Sorry—no reply.";
+  aiThread.push({ role: "assistant", content: reply });
   return { reply, usage: data?.usage, cost: data?.cost_usd_estimate };
 }
 
@@ -72,29 +81,29 @@ seedWelcome();
 $launcher.addEventListener("click", () => toggle(true));
 $close.addEventListener("click", () => toggle(false));
 
-$form.addEventListener("submit", (e) => {
+$form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = ($input.value || "").trim();
-  if(!text) return;
+  if (!text) return;
   addUser(text);
   $input.value = "";
-  handleIntent(text);
+  await handleIntent(text);
 });
 
-$quick.addEventListener("click", (e) => {
+$quick.addEventListener("click", async (e) => {
   const btn = e.target.closest(".chip");
-  if(!btn) return;
+  if (!btn) return;
   const intent = btn.dataset.intent;
-  if(intent){ handleIntent(intent, true); }
+  if (intent) { await handleIntent(intent, true); }
 });
 
 /* ========= Core UI Helpers ========= */
 function toggle(open){
   STATE.opened = open;
-  if(open){
+  if (open){
     $chat.hidden = false;
     setTimeout(()=> $input?.focus(), 30);
-  }else{
+  } else {
     $chat.hidden = true;
   }
 }
@@ -125,16 +134,16 @@ function renderMessage({role, text, html}){
   $feed.scrollTop = $feed.scrollHeight;
 }
 
-function showTyping(ms=900){
+function showTyping(){
   const wrap = document.createElement("div");
-  wrap.className = "msg agent";
+  wrap.className = "msg agent typing-wrap";
   const bubble = document.createElement("div");
   bubble.className = "bubble";
   bubble.innerHTML = `<span class="typing"><span></span><span></span><span></span></span>`;
   wrap.appendChild(bubble);
   $feed.appendChild(wrap);
   $feed.scrollTop = $feed.scrollHeight;
-  return new Promise(res=> setTimeout(()=>{ wrap.remove(); res(); }, ms));
+  return () => { wrap.remove(); };
 }
 
 function escapeHtml(s){
@@ -155,7 +164,7 @@ function persist(kind, payload){
 /* ========= Knowledge / Intents ========= */
 const ANSWERS = {
   about: `
-**Influmo** is a platform where influencers hire collaborators (video editors, page managers, designers, etc.) and brands discover verified creators. We streamline: profiles, vetted reviews, escrow-style payments, and smart matching—so you spend less time in DMs and more time building. 
+**Influmo** is a platform where influencers hire collaborators (video editors, page managers, designers, etc.) and brands discover verified creators. We streamline: profiles, vetted reviews, escrow-style payments, and smart matching—so you spend less time in DMs and more time building.
 `,
   benefits: `
 **Early Access Perks**
@@ -193,23 +202,19 @@ function htmlWelcome(){
   </div>`;
 }
 
+/* ========= Router ========= */
 async function handleIntent(input, isSystem=false){
-  // Normalize
   const q = (typeof input === "string" ? input : "").toLowerCase();
 
-  // Resolve explicit chips
   const known = ["about","benefits","join","contact","pricing"];
   const isKnown = known.includes(q);
 
-  // Classify lightweight intents
   let intent = isKnown ? q :
     /benefit|perk|early/.test(q) ? "benefits" :
     /(join|waitlist|sign\s?up|apply)/.test(q) ? "join" :
     /(price|fee|commission|percent)/.test(q) ? "pricing" :
     /(contact|email|phone|support|help)/.test(q) ? "contact" :
     /(what\s+is|influmo|about)/.test(q) ? "about" : "fallback";
-
-  await showTyping();
 
   switch(intent){
     case "about":
@@ -227,8 +232,24 @@ async function handleIntent(input, isSystem=false){
     case "join":
       renderLeadForm();
       break;
-    default:
-      addAgent("Got it! I can help with Influmo, early access, fees, or joining the waitlist. Try the chips below or ask anything.");
+    default: {
+      // AI fallback
+      if (!canUseAI()) { addAgent("Daily AI limit reached. Try again tomorrow."); break; }
+      const stopTyping = showTyping();
+      try {
+        const { reply, usage } = await askAI(input);
+        stopTyping();
+        addAgent(reply);
+        if (usage?.total_tokens) {
+          addAgent("", `<div class="meta">AI • ~${usage.total_tokens} tokens</div>`);
+        }
+      } catch (err) {
+        console.error(err);
+        stopTyping();
+        addAgent("I couldn’t reach the AI right now. Try again in a moment, or use the quick replies below.");
+      }
+      break;
+    }
   }
 }
 
@@ -255,20 +276,18 @@ function renderLeadForm(){
   `;
   addAgent("", html);
 
-  // Attach submit handler
   const form = $feed.querySelector("#influmo-lead");
   if(form){
     form.addEventListener("submit", async (e)=>{
       e.preventDefault();
       const data = Object.fromEntries(new FormData(form).entries());
-      // Save locally for personalization
       if(data.name) localStorage.setItem("influmo_name", data.name);
       if(data.role) localStorage.setItem("influmo_role", data.role);
 
-      await showTyping(700);
-      addAgent(`Thanks ${data.name || "there"}! You’re on the list. We’ll email **${data.email}** when your invite is ready. Meanwhile, follow us on Instagram for updates: <a href="${CONFIG.instagram}" target="_blank" rel="noopener">influmo.in</a>.`);
+      const stopTyping = showTyping();
+      setTimeout(()=> stopTyping(), 700);
+      addAgent(`Thanks ${data.name || "there"}! You’re on the list. We’ll email **${data.email}** when your invite is ready. Meanwhile, follow us on Instagram: <a href="${CONFIG.instagram}" target="_blank" rel="noopener">influmo.in</a>.`);
 
-      // Log to Supabase if enabled
       if(CONFIG.supabase.enabled){
         try{
           await supaInsert(CONFIG.supabase.tableLeads, {
