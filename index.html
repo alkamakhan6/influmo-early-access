@@ -24,45 +24,52 @@
       <p class="lead">Creators, crew, and brands get <b>0% take rate for 3 months</b> when invited from the waitlist. Limited spots while we onboard in waves.</p>
 
       <!-- Two-step waitlist -->
-     <form id="waitlistForm" class="card form" novalidate>
-  <div id="step1" data-step>
-    <label>Email</label>
-    <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" required />
-    <button id="nextBtn" type="button" class="btn">Next</button>
-  </div>
+      <form id="waitlistForm" class="card form" novalidate>
+        <!-- STEP 1 -->
+        <div id="step1" data-step>
+          <label>Email</label>
+          <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" required />
+          <button id="nextBtn" type="button" class="btn">Next</button>
+        </div>
 
-  <div id="step2" data-step hidden>
-    <label>Your role</label>
-    <select id="role" required>
-      <option value="" disabled selected>Select your role</option>
-      <option value="influencer">Influencer / Creator</option>
-      <option value="crew">Collaborator / Crew</option>
-      <option value="brand">Brand / Agency</option>
-    </select>
-    <button id="joinBtn" type="submit" class="btn">Get early access</button>
-  </div>
+        <!-- STEP 2 -->
+        <div id="step2" data-step hidden>
+          <label>Your role</label>
+          <select id="role" required>
+            <option value="" disabled selected>Select your role</option>
+            <option value="influencer">Influencer / Creator</option>
+            <option value="crew">Collaborator / Crew</option>
+            <option value="brand">Brand / Agency</option>
+          </select>
 
-  <!-- Honeypot (must be hidden by CSS) -->
-  <input id="company" name="company" type="text" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+          <label>Username <span class="small" style="margin-left:6px;color:#bdbdbd">(shown in “Recent joins” if you opt in)</span></label>
+          <input id="username" type="text" placeholder="@yourname"
+                 pattern="^[a-z0-9_.]{3,20}$" inputmode="latin"
+                 title="3–20 chars, a–z, 0–9, _ or . (lowercase)" />
 
-  <p id="msg" class="msg" role="status" aria-live="polite"></p>
-</form>
+          <label class="check" style="display:flex;gap:8px;align-items:center;margin-top:6px">
+            <input id="showPublic" type="checkbox" />
+            <span class="small">Show my username in “Recent joins”</span>
+          </label>
 
-<div class="proof">
-  <div class="count"><span id="count">—</span> joined so far</div>
-  <div id="breakdown" class="muted" style="margin-top:6px">loading…</div>
-</div>
+          <button id="joinBtn" type="submit" class="btn">Get early access</button>
+        </div>
 
-
-        <!-- Honeypot -->
-        <input id="company" name="company" type="text" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true"/>
+        <!-- Honeypot (must be hidden by CSS) -->
+        <input id="company" name="company" type="text" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
 
         <p id="msg" class="msg" role="status" aria-live="polite"></p>
-        <p class="small">By joining, you agree to our Terms & Privacy. We’ll only email about access & updates.</p>
       </form>
 
       <div class="proof">
+        <div class="count"><span id="count">—</span> joined so far</div>
+        <div id="breakdown" class="muted" style="margin-top:6px">loading…</div>
         <div class="muted">We onboard in small batches. First movers get the 0% take rate for three months.</div>
+      </div>
+
+      <!-- Recent joins bar -->
+      <div id="recentBar" class="recent-bar" aria-live="polite" style="margin-top:12px">
+        <div class="recent-track" id="recentTrack"></div>
       </div>
     </div>
 
@@ -82,7 +89,8 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="waitlist.js"></script>
+  <!-- Note: non-module for robust bindings -->
+  <script src="waitlist.js"></script>
   <script>document.getElementById('year').textContent=new Date().getFullYear();</script>
 </body>
 </html>
