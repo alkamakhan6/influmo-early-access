@@ -59,7 +59,7 @@
 
         // 3) Load logic
         const script = document.createElement("script");
-        script.src = "/chat/chatbot.js";
+        script.src = "/chat/chatbot.js?v=3";
         script.defer = true;
         script.onload = () => log("JS loaded:", script.src);
         script.onerror = (e) => console.error("[Influmo Chat] JS failed:", script.src, e);
