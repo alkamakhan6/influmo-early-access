@@ -20,7 +20,7 @@
         }
 
         // 1) Load CSS
-        const cssHref = "/chat/chatbot.css";
+        const link.href = "/chat/chatbot.css?v=3";
         const link = document.createElement("link");
         link.rel = "stylesheet";
         link.href = cssHref;
