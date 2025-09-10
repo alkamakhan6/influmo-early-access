@@ -128,6 +128,18 @@ button.btn:hover{background:rgba(212,175,55,.12)}
 .honeypot{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
 .benefits{margin:6px 0 0 18px}
 .benefits li{margin:6px 0}
+/* Two-step + bot field */
+[data-step][hidden]{display:none !important;}
+.honeypot{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+
+/* Recent joins bar */
+.recent-bar{border:1px solid var(--line);background:#101010;border-radius:9999px;overflow:hidden;padding:6px 0}
+.recent-track{display:inline-flex;gap:12px;align-items:center;padding-left:16px;white-space:nowrap;animation:marquee 28s linear infinite}
+.recent-pill{display:inline-flex;align-items:center;gap:8px;background:#0d0d0d;border:1px solid var(--line);border-radius:9999px;padding:6px 10px;color:var(--muted);font-size:12px}
+.recent-dot{width:8px;height:8px;border-radius:50%;background:#2ecc71;box-shadow:0 0 6px rgba(46,204,113,.8)}
+@keyframes marquee {0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){ .recent-track{ animation:none; } }
+
 [data-step][hidden]{display:none !important;}
 .honeypot{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;}
 
