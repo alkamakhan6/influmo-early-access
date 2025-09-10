@@ -35,6 +35,36 @@ const STATE = {
     role: localStorage.getItem("influmo_role") || null
   }
 };
+// keep last few turns for context
+const thread = []; // items like { role: 'user'|'assistant', content: '...' }
+
+async function askAI(userText) {
+  // add the user's new message to the local thread
+  thread.push({ role: 'user', content: userText });
+
+  // only send the last ~8 turns to keep token usage small
+  const lastTurns = thread.slice(-8);
+
+  const rsp = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-3.5-turbo',
+      temperature: 0.4,
+      max_tokens: 300,
+      messages: lastTurns
+    })
+  });
+
+  const data = await rsp.json();
+  if (!rsp.ok) throw new Error(data?.error || 'AI call failed');
+
+  const reply = data?.message?.content || 'Sorry—no reply.';
+  // store assistant reply back in thread so the model has context next turn
+  thread.push({ role: 'assistant', content: reply });
+
+  return { reply, usage: data?.usage, cost: data?.cost_usd_estimate };
+}
 
 /* ========= Init ========= */
 seedWelcome();
