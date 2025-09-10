@@ -9,7 +9,8 @@ const CONFIG = {
   // Optional Supabase (enable to log leads/messages)
   supabase: {
     url: "https://iixpugcjoafrypjspqaf.supabase.co",
-    anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpeHB1Z2Nqb2FmcnlwanNwcWFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNzQ0MjIsImV4cCI6MjA3MTY1MDQyMn0.lZnEkXtVSSnxtCtXjFEseAxvzHgBfvdPOwS118hN8ak",
+    anonKey:
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpeHB1Z2Nqb2FmcnlwanNwcWFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNzQ0MjIsImV4cCI6MjA3MTY1MDQyMn0.lZnEkXtVSSnxtCtXjFEseAxvzHgBfvdPOwS118hN8ak",
     tableMessages: "chat_messages",
     tableLeads: "chat_leads",
     enabled: false // set true after filling URL & key and adding RLS policies
@@ -40,23 +41,30 @@ const STATE = {
 const aiThread = [];
 
 /* ========= Cost Guardrail ========= */
-function canUseAI(limit = 20){
+function canUseAI(limit = 20) {
   const key = "influmo_ai_uses";
   const today = new Date().toDateString();
   const rec = JSON.parse(localStorage.getItem(key) || "{}");
-  if (rec.date !== today) { rec.date = today; rec.count = 0; }
+  if (rec.date !== today) {
+    rec.date = today;
+    rec.count = 0;
+  }
   if (rec.count >= limit) return false;
   rec.count += 1;
   localStorage.setItem(key, JSON.stringify(rec));
   return true;
 }
 
-/* ========= AI Caller (via your /api/chat) ========= */
+/* ========= AI Caller (calls your Vercel API) ========= */
+// NOTE: using absolute Vercel URL so it works from GitHub Pages too.
+const API_CHAT =
+  "https://influmo-soon.vercel.app/api/chat";
+
 async function askAI(userText) {
   aiThread.push({ role: "user", content: userText });
   const lastTurns = aiThread.slice(-8);
 
-  const rsp = await fetch("/api/chat", {
+  const rsp = await fetch(API_CHAT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -67,8 +75,12 @@ async function askAI(userText) {
     })
   });
 
-  const data = await rsp.json().catch(()=> ({}));
-  if (!rsp.ok) throw new Error(data?.error || "AI call failed");
+  const data = await rsp.json().catch(() => ({}));
+  if (!rsp.ok) {
+    // Bubble up backend detail if present
+    const detail = data?.detail || data?.error || "AI call failed";
+    throw new Error(detail);
+  }
 
   const reply = data?.message?.content || "Sorry—no reply.";
   aiThread.push({ role: "assistant", content: reply });
@@ -94,36 +106,38 @@ $quick.addEventListener("click", async (e) => {
   const btn = e.target.closest(".chip");
   if (!btn) return;
   const intent = btn.dataset.intent;
-  if (intent) { await handleIntent(intent, true); }
+  if (intent) {
+    await handleIntent(intent, true);
+  }
 });
 
 /* ========= Core UI Helpers ========= */
-function toggle(open){
+function toggle(open) {
   STATE.opened = open;
-  if (open){
+  if (open) {
     $chat.hidden = false;
-    setTimeout(()=> $input?.focus(), 30);
+    setTimeout(() => $input?.focus(), 30);
   } else {
     $chat.hidden = true;
   }
 }
 
-function addAgent(text, html=null){
-  const msg = {role:"agent", text, html};
+function addAgent(text, html = null) {
+  const msg = { role: "agent", text, html };
   STATE.thread.push(msg);
   renderMessage(msg);
   persist("msg", msg);
 }
 
-function addUser(text){
-  const msg = {role:"user", text};
+function addUser(text) {
+  const msg = { role: "user", text };
   STATE.thread.push(msg);
   renderMessage(msg);
   persist("msg", msg);
   logMessage("user", text);
 }
 
-function renderMessage({role, text, html}){
+function renderMessage({ role, text, html }) {
   const wrap = document.createElement("div");
   wrap.className = `msg ${role}`;
   const bubble = document.createElement("div");
@@ -134,7 +148,7 @@ function renderMessage({role, text, html}){
   $feed.scrollTop = $feed.scrollHeight;
 }
 
-function showTyping(){
+function showTyping() {
   const wrap = document.createElement("div");
   wrap.className = "msg agent typing-wrap";
   const bubble = document.createElement("div");
@@ -143,22 +157,24 @@ function showTyping(){
   wrap.appendChild(bubble);
   $feed.appendChild(wrap);
   $feed.scrollTop = $feed.scrollHeight;
-  return () => { wrap.remove(); };
+  return () => {
+    wrap.remove();
+  };
 }
 
-function escapeHtml(s){
-  return s.replace(/[&<>"']/g, m=>(
-    { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[m]
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (m) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]
   ));
 }
 
-function persist(kind, payload){
-  try{
+function persist(kind, payload) {
+  try {
     const key = "influmo_chat_history";
-    const arr = JSON.parse(localStorage.getItem(key)||"[]");
-    arr.push({t:Date.now(), kind, payload});
+    const arr = JSON.parse(localStorage.getItem(key) || "[]");
+    arr.push({ t: Date.now(), kind, payload });
     localStorage.setItem(key, JSON.stringify(arr));
-  }catch{}
+  } catch {}
 }
 
 /* ========= Knowledge / Intents ========= */
@@ -189,12 +205,12 @@ const ANSWERS = {
 `
 };
 
-async function seedWelcome(){
+async function seedWelcome() {
   addAgent("", htmlWelcome());
   addAgent("Hi! I’m the Influmo Concierge. How can I help today?");
 }
 
-function htmlWelcome(){
+function htmlWelcome() {
   return `
   <div>
     <strong>Welcome to Influmo</strong> — the fastest way for influencers, collaborators, and brands to find each other and work safely.
@@ -203,20 +219,27 @@ function htmlWelcome(){
 }
 
 /* ========= Router ========= */
-async function handleIntent(input, isSystem=false){
+async function handleIntent(input, isSystem = false) {
   const q = (typeof input === "string" ? input : "").toLowerCase();
 
-  const known = ["about","benefits","join","contact","pricing"];
+  const known = ["about", "benefits", "join", "contact", "pricing"];
   const isKnown = known.includes(q);
 
-  let intent = isKnown ? q :
-    /benefit|perk|early/.test(q) ? "benefits" :
-    /(join|waitlist|sign\s?up|apply)/.test(q) ? "join" :
-    /(price|fee|commission|percent)/.test(q) ? "pricing" :
-    /(contact|email|phone|support|help)/.test(q) ? "contact" :
-    /(what\s+is|influmo|about)/.test(q) ? "about" : "fallback";
+  let intent = isKnown
+    ? q
+    : /benefit|perk|early/.test(q)
+    ? "benefits"
+    : /(join|waitlist|sign\s?up|apply)/.test(q)
+    ? "join"
+    : /(price|fee|commission|percent)/.test(q)
+    ? "pricing"
+    : /(contact|email|phone|support|help)/.test(q)
+    ? "contact"
+    : /(what\s+is|influmo|about)/.test(q)
+    ? "about"
+    : "fallback";
 
-  switch(intent){
+  switch (intent) {
     case "about":
       addAgent("", mdToHtml(ANSWERS.about));
       break;
@@ -234,7 +257,10 @@ async function handleIntent(input, isSystem=false){
       break;
     default: {
       // AI fallback
-      if (!canUseAI()) { addAgent("Daily AI limit reached. Try again tomorrow."); break; }
+      if (!canUseAI()) {
+        addAgent("Daily AI limit reached. Try again tomorrow.");
+        break;
+      }
       const stopTyping = showTyping();
       try {
         const { reply, usage } = await askAI(input);
@@ -246,7 +272,9 @@ async function handleIntent(input, isSystem=false){
       } catch (err) {
         console.error(err);
         stopTyping();
-        addAgent("I couldn’t reach the AI right now. Try again in a moment, or use the quick replies below.");
+        addAgent(
+          "I couldn’t reach the AI right now. Try again in a moment, or use the quick replies below."
+        );
       }
       break;
     }
@@ -254,7 +282,7 @@ async function handleIntent(input, isSystem=false){
 }
 
 /* ========= Lead Form & Supabase ========= */
-function renderLeadForm(){
+function renderLeadForm() {
   const html = `
     <div>
       <strong>Join the Early Access Waitlist</strong>
@@ -277,39 +305,45 @@ function renderLeadForm(){
   addAgent("", html);
 
   const form = $feed.querySelector("#influmo-lead");
-  if(form){
-    form.addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      const data = Object.fromEntries(new FormData(form).entries());
-      if(data.name) localStorage.setItem("influmo_name", data.name);
-      if(data.role) localStorage.setItem("influmo_role", data.role);
+  if (form) {
+    form.addEventListener(
+      "submit",
+      async (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(form).entries());
+        if (data.name) localStorage.setItem("influmo_name", data.name);
+        if (data.role) localStorage.setItem("influmo_role", data.role);
 
-      const stopTyping = showTyping();
-      setTimeout(()=> stopTyping(), 700);
-      addAgent(`Thanks ${data.name || "there"}! You’re on the list. We’ll email **${data.email}** when your invite is ready. Meanwhile, follow us on Instagram: <a href="${CONFIG.instagram}" target="_blank" rel="noopener">influmo.in</a>.`);
+        const stopTyping = showTyping();
+        setTimeout(() => stopTyping(), 700);
+        addAgent(
+          `Thanks ${data.name || "there"}! You’re on the list. We’ll email **${data.email}** when your invite is ready. Meanwhile, follow us on Instagram: <a href="${CONFIG.instagram}" target="_blank" rel="noopener">influmo.in</a>.`
+        );
 
-      if(CONFIG.supabase.enabled){
-        try{
-          await supaInsert(CONFIG.supabase.tableLeads, {
-            user_id: STATE.user.id,
-            name: data.name || null,
-            role: data.role || null,
-            social_username: data.username || null,
-            email: data.email || null,
-            phone: data.phone || null,
-            source: "chat_widget",
-            created_at: new Date().toISOString()
-          });
-        }catch(err){
-          console.warn("Lead save failed:", err);
+        if (CONFIG.supabase.enabled) {
+          try {
+            await supaInsert(CONFIG.supabase.tableLeads, {
+              user_id: STATE.user.id,
+              name: data.name || null,
+              role: data.role || null,
+              social_username: data.username || null,
+              email: data.email || null,
+              phone: data.phone || null,
+              source: "chat_widget",
+              created_at: new Date().toISOString()
+            });
+          } catch (err) {
+            console.warn("Lead save failed:", err);
+          }
         }
-      }
-    }, { once:true });
+      },
+      { once: true }
+    );
   }
 }
 
 /* ========= Minimal Markdown to HTML ========= */
-function mdToHtml(md){
+function mdToHtml(md) {
   return escapeHtml(md)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|\n)•\s/g, "$1&nbsp;&bull; ")
@@ -317,30 +351,33 @@ function mdToHtml(md){
 }
 
 /* ========= Supabase Logging ========= */
-async function logMessage(role, text){
-  if(!CONFIG.supabase.enabled) return;
-  try{
+async function logMessage(role, text) {
+  if (!CONFIG.supabase.enabled) return;
+  try {
     await supaInsert(CONFIG.supabase.tableMessages, {
       user_id: STATE.user.id,
-      role, text,
+      role,
+      text,
       created_at: new Date().toISOString()
     });
-  }catch(err){ console.warn("Message log failed:", err); }
+  } catch (err) {
+    console.warn("Message log failed:", err);
+  }
 }
 
-async function supaInsert(table, obj){
+async function supaInsert(table, obj) {
   const { url, anonKey } = CONFIG.supabase;
   const res = await fetch(`${url}/rest/v1/${encodeURIComponent(table)}`, {
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "apikey": anonKey,
-      "Authorization": `Bearer ${anonKey}`,
-      "Prefer":"return=representation"
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+      Prefer: "return=representation"
     },
     body: JSON.stringify([obj])
   });
-  if(!res.ok){
+  if (!res.ok) {
     const txt = await res.text();
     throw new Error(`Supabase error: ${res.status} ${txt}`);
   }
@@ -348,11 +385,12 @@ async function supaInsert(table, obj){
 }
 
 /* ========= Utils ========= */
-function getOrSetAnonId(){
-  const key="influmo_anon_id";
+function getOrSetAnonId() {
+  const key = "influmo_anon_id";
   let id = localStorage.getItem(key);
-  if(!id){
-    id = "anon_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  if (!id) {
+    id =
+      "anon_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
     localStorage.setItem(key, id);
   }
   return id;
