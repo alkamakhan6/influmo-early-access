@@ -92,15 +92,45 @@
   async function refreshBreakdown(){ try{ const {data}=await sb.rpc('waitlist_breakdown'); if(!data||!breakdownEl) return;
     breakdownEl.textContent = `${data.total||0} total • ${data.influencer||0} creators • ${data.crew||0} crew • ${data.brand||0} brands`;
   }catch{ if(breakdownEl) breakdownEl.textContent=''; } }
-  async function refreshRecent(){ try{
-    const track=document.getElementById('recentTrack'); if(!track) return;
-    const { data } = await sb.rpc('waitlist_recent_usernames', { n: 16 });
-    track.innerHTML=''; const items=(data||[]).map(row=>{ const pill=document.createElement('div'); pill.className='recent-pill';
-      const dot=document.createElement('span'); dot.className='recent-dot';
-      const label=document.createElement('span'); label.textContent=`${roleIcon(row.role)} @${row.username} • ${timeAgo(row.joined_at)}`;
-      pill.append(dot,label); return pill; });
-    items.forEach(el=>track.appendChild(el)); items.forEach(el=>track.appendChild(el.cloneNode(true))); // loop
-  }catch{} }
+ async function refreshRecent(){
+  try{
+    const track = document.getElementById('recentTrack');
+    const bar   = document.getElementById('recentBar'); // container
+    if (!track || !bar) return;
+
+    const { data } = await sb.rpc('waitlist_recent_usernames', { n: 24 });
+    track.innerHTML = '';
+
+    const items = (data || []).map(row => {
+      const pill = document.createElement('div');
+      pill.className = 'recent-pill';
+      pill.innerHTML = `<span class="recent-dot"></span> ${
+        row.role === 'brand' ? '🏢' : row.role === 'crew' ? '🧰' : '🏷️'
+      } @${row.username} • ${timeAgo(row.joined_at)}`;
+      return pill;
+    });
+
+    // If nothing yet, hide the bar
+    if (!items.length) { bar.style.display = 'none'; return; }
+    bar.style.display = '';
+
+    items.forEach(el => track.appendChild(el));
+
+    // Only duplicate + animate when content actually overflows
+    requestAnimationFrame(() => {
+      const needLoop = track.scrollWidth > bar.clientWidth + 40;
+      if (needLoop) {
+        items.forEach(el => track.appendChild(el.cloneNode(true)));
+        track.style.animation = 'marquee 28s linear infinite';
+      } else {
+        track.style.animation = 'none';
+      }
+    });
+  } catch (e) {
+    console.warn('recent error', e);
+  }
+}
+
 
   // init
   showStep('step1'); refreshCount(); refreshBreakdown(); refreshRecent();
