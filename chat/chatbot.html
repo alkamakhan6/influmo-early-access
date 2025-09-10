@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Influmo Chat</title>
+  <link rel="stylesheet" href="chatbot.css" />
+</head>
+<body>
+
+  <!-- Floating Launcher -->
+  <button id="influmo-launcher" aria-label="Open chat">
+    <span class="bubble-dot" aria-hidden="true"></span>
+    <span class="bubble-dot" aria-hidden="true"></span>
+    <span class="bubble-dot" aria-hidden="true"></span>
+  </button>
+
+  <!-- Chat Window -->
+  <section id="influmo-chat" aria-live="polite" aria-label="Influmo Chat" hidden>
+    <header class="chat-header" role="banner">
+      <div class="brand">
+        <!-- Replace src with your logo if you like -->
+        <div class="logo"><img src="/influmologo.jpg"></div>
+        <div>
+          <h1>Influmo Concierge</h1>
+          <p>We help influencers & collaborators connect.</p>
+        </div>
+      </div>
+      <button class="icon-btn" id="influmo-close" aria-label="Close chat">✕</button>
+    </header>
+
+    <main id="influmo-feed" class="chat-feed">
+      <!-- Messages render here -->
+    </main>
+
+    <!-- Quick Replies -->
+    <div id="influmo-quick" class="quick-replies" role="list">
+      <button class="chip" data-intent="about">What is Influmo?</button>
+      <button class="chip" data-intent="benefits">Early access benefits</button>
+      <button class="chip" data-intent="join">Join waitlist</button>
+      <button class="chip" data-intent="contact">Contact info</button>
+      <button class="chip" data-intent="pricing">How do fees work?</button>
+    </div>
+
+    <!-- Composer -->
+    <form id="influmo-form" class="composer" autocomplete="off">
+      <input
+        id="influmo-input"
+        name="message"
+        type="text"
+        inputmode="text"
+        placeholder="Type your message…"
+        aria-label="Type your message"
+        required
+      />
+      <button class="send-btn" aria-label="Send">➤</button>
+    </form>
+  </section>
+
+  <script src="chatbot.js"></script>
+</body>
+</html>
