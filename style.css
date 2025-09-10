@@ -142,4 +142,37 @@ button.btn:hover{background:rgba(212,175,55,.12)}
 
 [data-step][hidden]{display:none !important;}
 .honeypot{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;}
+/* ---------- Mobile polish ---------- */
+@media (max-width: 900px){
+  .container{ padding:16px; }
+  .card{ padding:14px; border-radius:14px; }
+  .hero{ grid-template-columns:1fr; padding-top:20px; }
+  .hero-right{ margin-top:16px; }
+  .h1{ font-size:32px; line-height:1.15; }
+  .lead{ font-size:15px; }
+}
+
+/* Step layouts */
+#step1, #step2{
+  display:grid;
+  grid-template-columns: 1fr auto;  /* input + button on one row */
+  gap:10px;
+  align-items:center;
+}
+#step2{ grid-template-columns:1fr; } /* Role (+ username/opt-in if you add later) stacks */
+#joinBtn{ width:100%; }
+
+/* Very small screens: stack email + Next */
+@media (max-width: 520px){
+  #step1{ grid-template-columns:1fr; }
+  #step1 .btn{ width:100%; }
+}
+
+/* Tap targets */
+input, select{ min-height:44px; }
+#step1 .btn, #joinBtn{ min-height:44px; }
+
+/* Recent joins bar: JS will enable animation only if needed */
+.recent-bar{ margin-top:10px; overflow:hidden; }
+.recent-track{ animation:none; } /* default OFF; JS toggles on overflow */
 
