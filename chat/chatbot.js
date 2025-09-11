@@ -196,4 +196,144 @@ const ANSWERS = {
 `,
   pricing: `
 **How fees work**
-• Launch phase: creators
+• Launch phase: creators & collaborators enjoy **0% platform fee for the first 3 months** (early access).  
+• After that, a simple **10%** service fee on successful, platform-protected payments.  
+• No listing or monthly fees during early access.  
+`
+};
+
+async function seedWelcome() {
+  addAgent("", htmlWelcome());
+  addAgent("Hi! I’m the Influmo Concierge. How can I help today?");
+}
+
+function htmlWelcome() {
+  return `
+  <div>
+    <strong>Welcome to Influmo</strong> — the fastest way for influencers, collaborators, and brands to find each other and work safely.
+    <div class="meta">Tip: tap a quick reply below to start.</div>
+  </div>`;
+}
+
+/* ========= Router ========= */
+async function handleIntent(input, isSystem = false) {
+  const q = (typeof input === "string" ? input : "").toLowerCase();
+
+  const known = ["about", "benefits", "join", "contact", "pricing"];
+  const isKnown = known.includes(q);
+
+  let intent = isKnown
+    ? q
+    : /benefit|perk|early/.test(q)
+    ? "benefits"
+    : /(join|waitlist|sign\s?up|apply)/.test(q)
+    ? "join"
+    : /(price|fee|commission|percent)/.test(q)
+    ? "pricing"
+    : /(contact|email|phone|support|help)/.test(q)
+    ? "contact"
+    : /(what\s+is|influmo|about)/.test(q)
+    ? "about"
+    : "fallback";
+
+  switch (intent) {
+    case "about":
+      addAgent("", mdToHtml(ANSWERS.about));
+      break;
+    case "benefits":
+      addAgent("", mdToHtml(ANSWERS.benefits));
+      break;
+    case "pricing":
+      addAgent("", mdToHtml(ANSWERS.pricing));
+      break;
+    case "contact":
+      addAgent("", mdToHtml(ANSWERS.contact));
+      break;
+    case "join":
+      renderLeadForm();
+      break;
+    default: {
+      if (!canUseAI()) {
+        addAgent("Daily AI limit reached. Try again tomorrow.");
+        break;
+      }
+      const stopTyping = showTyping();
+      try {
+        const { reply, usage } = await askAI(input);
+        stopTyping();
+        addAgent(reply);
+        if (usage?.total_tokens) {
+          addAgent("", `<div class="meta">AI • ~${usage.total_tokens} tokens</div>`);
+        }
+      } catch (err) {
+        console.error(err);
+        stopTyping();
+        addAgent("I couldn’t reach the AI right now. Try again in a moment, or use the quick replies below.");
+      }
+      break;
+    }
+  }
+}
+
+/* ========= Lead Form ========= */
+function renderLeadForm() {
+  const html = `
+    <div>
+      <strong>Join the Early Access Waitlist</strong>
+      <div class="meta">0% platform fee for first 3 months.</div>
+      <form class="lead-form" id="influmo-lead">
+        <input type="text" name="name" placeholder="Your name" required />
+        <select name="role" required>
+          <option value="">I am…</option>
+          <option value="Influencer">Influencer</option>
+          <option value="Collaborator">Collaborator</option>
+          <option value="Brand">Brand / Agency</option>
+        </select>
+        <input type="text" name="username" placeholder="Instagram / YouTube / TikTok @handle" />
+        <input type="email" name="email" placeholder="Email" required />
+        <input type="tel" name="phone" placeholder="Phone (optional)" />
+        <button type="submit">Request Invite</button>
+      </form>
+    </div>
+  `;
+  addAgent("", html);
+
+  const form = $feed.querySelector("#influmo-lead");
+  if (form) {
+    form.addEventListener(
+      "submit",
+      async (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(form).entries());
+        if (data.name) localStorage.setItem("influmo_name", data.name);
+        if (data.role) localStorage.setItem("influmo_role", data.role);
+
+        const stopTyping = showTyping();
+        setTimeout(() => stopTyping(), 700);
+        addAgent(
+          `Thanks ${data.name || "there"}! You’re on the list. We’ll email **${data.email}** when your invite is ready. Meanwhile, follow us on Instagram: <a href="${CONFIG.instagram}" target="_blank" rel="noopener">influmo.in</a>.`
+        );
+      },
+      { once: true }
+    );
+  }
+}
+
+/* ========= Markdown Helper ========= */
+function mdToHtml(md) {
+  return escapeHtml(md)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|\n)•\s/g, "$1&nbsp;&bull; ")
+    .replace(/\n/g, "<br/>");
+}
+
+/* ========= Utils ========= */
+function getOrSetAnonId() {
+  const key = "influmo_anon_id";
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = "anon_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
