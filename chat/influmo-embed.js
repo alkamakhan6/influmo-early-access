@@ -2,7 +2,9 @@
 (function () {
   try {
     window.INFLUMO_CHAT_DEBUG = true;
-    const log = (...a) => { if (window.INFLUMO_CHAT_DEBUG) console.log("[Influmo Chat]", ...a); };
+    const log = (...a) => {
+      if (window.INFLUMO_CHAT_DEBUG) console.log("[Influmo Chat]", ...a);
+    };
 
     // 0) Page ready check
     if (!document || !document.body) {
@@ -20,7 +22,7 @@
         }
 
         // 1) Load CSS
-        const link.href = "/chat/chatbot.css?v=3";
+        const cssHref = "/chat/chatbot.css?v=3"; // define correctly
         const link = document.createElement("link");
         link.rel = "stylesheet";
         link.href = cssHref;
@@ -36,8 +38,13 @@
           <section id="influmo-chat" aria-live="polite" aria-label="Influmo Chat" hidden>
             <header class="chat-header">
               <div class="brand">
-                <div class="logo"><img src="/influmologo.jpg" alt="Influmo Logo" style="max-width:100%;max-height:100%;object-fit:contain"/></div>
-                <div><h1>Influmo Concierge</h1><p>We help influencers & collaborators connect.</p></div>
+                <div class="logo">
+                  <img src="/influmologo.jpg" alt="Influmo Logo" style="max-width:100%;max-height:100%;object-fit:contain"/>
+                </div>
+                <div>
+                  <h1>Influmo Concierge</h1>
+                  <p>We help influencers & collaborators connect.</p>
+                </div>
               </div>
               <button class="icon-btn" id="influmo-close" aria-label="Close chat">✕</button>
             </header>
@@ -54,16 +61,18 @@
               <button class="send-btn" aria-label="Send">➤</button>
             </form>
           </section>`;
+        
         document.body.insertAdjacentHTML("beforeend", html);
         log("HTML injected");
 
-        // 3) Load logic
+        // 3) Load chatbot logic
         const script = document.createElement("script");
         script.src = "/chat/chatbot.js?v=3";
         script.defer = true;
         script.onload = () => log("JS loaded:", script.src);
         script.onerror = (e) => console.error("[Influmo Chat] JS failed:", script.src, e);
         document.body.appendChild(script);
+
       } catch (err) {
         console.error("[Influmo Chat] inject error:", err);
       }
