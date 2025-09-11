@@ -56,32 +56,51 @@ function canUseAI(limit = 20) {
 }
 
 /* ========= API Endpoint ========= */
-// Use relative path to avoid CORS issues
 const API_CHAT = "/api/chat";
 
-/* ========= AI Caller ========= */
+/* ========= AI Caller (timeout + robust errors) ========= */
 async function askAI(userText) {
   aiThread.push({ role: "user", content: userText });
   const lastTurns = aiThread.slice(-8);
 
-  const rsp = await fetch(API_CHAT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "gpt-3.5-turbo",
-      temperature: 0.4,
-      max_tokens: 300,
-      messages: lastTurns
-    })
-  });
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
-  const data = await rsp.json().catch(() => ({}));
-  if (!rsp.ok) {
-    const detail = data?.detail || data?.error || "AI call failed";
-    throw new Error(detail);
+  let rsp, raw, data;
+  try {
+    rsp = await fetch(API_CHAT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        temperature: 0.4,
+        max_tokens: 300,
+        messages: lastTurns
+      }),
+      signal: controller.signal
+    });
+  } catch (e) {
+    clearTimeout(t);
+    throw new Error("Network error (fetch failed or timed out)");
   }
 
-  const reply = data?.message?.content || "Sorry—no reply.";
+  clearTimeout(t);
+
+  try {
+    raw = await rsp.text();
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    data = { raw: raw || "" };
+  }
+
+  if (!rsp.ok) {
+    const detail = data?.error || data?.detail || data?.raw || `HTTP ${rsp.status}`;
+    throw new Error(String(detail));
+  }
+
+  const reply = data?.message?.content || "";
+  if (!reply.trim()) throw new Error("Empty reply from AI");
+
   aiThread.push({ role: "assistant", content: reply });
   return { reply, usage: data?.usage, cost: data?.cost_usd_estimate };
 }
@@ -105,9 +124,7 @@ $quick.addEventListener("click", async (e) => {
   const btn = e.target.closest(".chip");
   if (!btn) return;
   const intent = btn.dataset.intent;
-  if (intent) {
-    await handleIntent(intent, true);
-  }
+  if (intent) await handleIntent(intent, true);
 });
 
 /* ========= Core UI Helpers ========= */
@@ -160,9 +177,9 @@ function showTyping() {
 }
 
 function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, (m) => (
-    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]
-  ));
+  return s.replace(/[&<>"']/g, (m) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m])
+  );
 }
 
 function persist(kind, payload) {
@@ -216,7 +233,7 @@ function htmlWelcome() {
 }
 
 /* ========= Router ========= */
-async function handleIntent(input, isSystem = false) {
+async function handleIntent(input) {
   const q = (typeof input === "string" ? input : "").toLowerCase();
 
   const known = ["about", "benefits", "join", "contact", "pricing"];
@@ -266,9 +283,11 @@ async function handleIntent(input, isSystem = false) {
           addAgent("", `<div class="meta">AI • ~${usage.total_tokens} tokens</div>`);
         }
       } catch (err) {
-        console.error(err);
         stopTyping();
-        addAgent("I couldn’t reach the AI right now. Try again in a moment, or use the quick replies below.");
+        console.error("[Influmo Chat] AI error:", err);
+        addAgent(
+          `I couldn't reach the AI right now. (${String(err).replace(/^Error:\s*/, "")})<br/><span class="meta">Try again, or use the quick replies below.</span>`
+        );
       }
       break;
     }
