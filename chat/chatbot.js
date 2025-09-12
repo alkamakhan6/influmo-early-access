@@ -5,17 +5,18 @@ const CONFIG = {
   instagram: "https://instagram.com/influmo.in",
   helpEmail: "help@influmo.in",
   phone: "+91 9692350383",
-
-  // Optional Supabase (enable to log leads/messages)
-  supabase: {
-    url: "https://iixpugcjoafrypjspqaf.supabase.co",
-    anonKey:
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpeHB1Z2Nqb2FmcnlwanNwcWFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwNzQ0MjIsImV4cCI6MjA3MTY1MDQyMn0.lZnEkXtVSSnxtCtXjFEseAxvzHgBfvdPOwS118hN8ak",
-    tableMessages: "chat_messages",
-    tableLeads: "chat_leads",
-    enabled: false // set true after filling URL & key and adding RLS policies
-  }
+  supabase: { enabled: false } // disabled in this build
 };
+
+/* ========= Where to call the API ========= */
+// If site is on influmo.in or github.io, call the Vercel function explicitly.
+// If the whole site is on Vercel later, the relative path will work.
+const API_CHAT =
+  (location.hostname.includes("influmo.in") || location.hostname.includes("github.io"))
+    ? "https://influmo-soon.vercel.app/api/chat"
+    : "/api/chat";
+window.__INFLUMO_API_CHAT__ = API_CHAT;
+console.log("[Influmo Chat] Using API:", API_CHAT);
 
 /* ========= DOM ========= */
 const $launcher = document.getElementById("influmo-launcher");
@@ -29,7 +30,7 @@ const $quick = document.getElementById("influmo-quick");
 /* ========= State ========= */
 const STATE = {
   opened: false,
-  thread: [], // UI history: {role:'agent'|'user', text, html}
+  thread: [],
   user: {
     id: getOrSetAnonId(),
     name: localStorage.getItem("influmo_name") || null,
@@ -37,79 +38,46 @@ const STATE = {
   }
 };
 
-// AI conversation context: { role:'user'|'assistant', content:string }
+// AI conversation context
 const aiThread = [];
 
-/* ========= Cost Guardrail ========= */
+/* ========= Daily use guard (optional) ========= */
 function canUseAI(limit = 20) {
   const key = "influmo_ai_uses";
   const today = new Date().toDateString();
   const rec = JSON.parse(localStorage.getItem(key) || "{}");
-  if (rec.date !== today) {
-    rec.date = today;
-    rec.count = 0;
-  }
+  if (rec.date !== today) { rec.date = today; rec.count = 0; }
   if (rec.count >= limit) return false;
   rec.count += 1;
   localStorage.setItem(key, JSON.stringify(rec));
   return true;
 }
 
-/* ========= API Endpoint ========= */
-// Call Vercel function when running on influmo.in / GitHub Pages,
-// fall back to relative when the site itself is on Vercel.
-const API_CHAT =
-  (location.hostname.includes('influmo.in') || location.hostname.includes('github.io'))
-    ? 'https://influmo-soon.vercel.app/api/chat'
-    : '/api/chat';
-
-
-
-/* ========= AI Caller (timeout + robust errors) ========= */
+/* ========= AI Caller ========= */
 async function askAI(userText) {
   aiThread.push({ role: "user", content: userText });
   const lastTurns = aiThread.slice(-8);
 
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 15000); // 15s timeout
+  const rsp = await fetch(API_CHAT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      temperature: 0.4,
+      max_tokens: 300,
+      messages: lastTurns
+    })
+  });
 
-  let rsp, raw, data;
-  try {
-    rsp = await fetch(API_CHAT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        temperature: 0.4,
-        max_tokens: 300,
-        messages: lastTurns
-      }),
-      signal: controller.signal
-    });
-  } catch (e) {
-    clearTimeout(t);
-    throw new Error("Network error (fetch failed or timed out)");
-  }
-
-  clearTimeout(t);
-
-  try {
-    raw = await rsp.text();
-    data = raw ? JSON.parse(raw) : {};
-  } catch {
-    data = { raw: raw || "" };
-  }
-
+  const data = await rsp.json().catch(() => ({}));
   if (!rsp.ok) {
-    const detail = data?.error || data?.detail || data?.raw || `HTTP ${rsp.status}`;
-    throw new Error(String(detail));
+    const detail = data?.detail || data?.error || `HTTP ${rsp.status}`;
+    throw new Error(detail);
   }
 
-  const reply = data?.message?.content || "";
-  if (!reply.trim()) throw new Error("Empty reply from AI");
-
+  const reply = data?.message?.content || "Sorry—no reply.";
   aiThread.push({ role: "assistant", content: reply });
-  return { reply, usage: data?.usage, cost: data?.cost_usd_estimate };
+  return { reply, usage: data?.usage };
 }
 
 /* ========= Init ========= */
@@ -134,7 +102,7 @@ $quick.addEventListener("click", async (e) => {
   if (intent) await handleIntent(intent, true);
 });
 
-/* ========= Core UI Helpers ========= */
+/* ========= UI helpers ========= */
 function toggle(open) {
   STATE.opened = open;
   if (open) {
@@ -183,9 +151,9 @@ function showTyping() {
 }
 
 function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, (m) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m])
-  );
+  return s.replace(/[&<>"']/g, m => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]
+  ));
 }
 
 function persist(kind, payload) {
@@ -239,47 +207,27 @@ function htmlWelcome() {
 }
 
 /* ========= Router ========= */
-async function handleIntent(input) {
+async function handleIntent(input, isSystem = false) {
   const q = (typeof input === "string" ? input : "").toLowerCase();
 
   const known = ["about", "benefits", "join", "contact", "pricing"];
   const isKnown = known.includes(q);
 
-  let intent = isKnown
-    ? q
-    : /benefit|perk|early/.test(q)
-    ? "benefits"
-    : /(join|waitlist|sign\s?up|apply)/.test(q)
-    ? "join"
-    : /(price|fee|commission|percent)/.test(q)
-    ? "pricing"
-    : /(contact|email|phone|support|help)/.test(q)
-    ? "contact"
-    : /(what\s+is|influmo|about)/.test(q)
-    ? "about"
-    : "fallback";
+  let intent = isKnown ? q :
+    /benefit|perk|early/.test(q) ? "benefits" :
+    /(join|waitlist|sign\s?up|apply)/.test(q) ? "join" :
+    /(price|fee|commission|percent)/.test(q) ? "pricing" :
+    /(contact|email|phone|support|help)/.test(q) ? "contact" :
+    /(what\s+is|influmo|about)/.test(q) ? "about" : "fallback";
 
   switch (intent) {
-    case "about":
-      addAgent("", mdToHtml(ANSWERS.about));
-      break;
-    case "benefits":
-      addAgent("", mdToHtml(ANSWERS.benefits));
-      break;
-    case "pricing":
-      addAgent("", mdToHtml(ANSWERS.pricing));
-      break;
-    case "contact":
-      addAgent("", mdToHtml(ANSWERS.contact));
-      break;
-    case "join":
-      renderLeadForm();
-      break;
+    case "about":    addAgent("", mdToHtml(ANSWERS.about)); break;
+    case "benefits": addAgent("", mdToHtml(ANSWERS.benefits)); break;
+    case "pricing":  addAgent("", mdToHtml(ANSWERS.pricing)); break;
+    case "contact":  addAgent("", mdToHtml(ANSWERS.contact)); break;
+    case "join":     renderLeadForm(); break;
     default: {
-      if (!canUseAI()) {
-        addAgent("Daily AI limit reached. Try again tomorrow.");
-        break;
-      }
+      if (!canUseAI()) { addAgent("Daily AI limit reached. Try again tomorrow."); break; }
       const stopTyping = showTyping();
       try {
         const { reply, usage } = await askAI(input);
@@ -291,11 +239,8 @@ async function handleIntent(input) {
       } catch (err) {
         stopTyping();
         console.error("[Influmo Chat] AI error:", err);
-        addAgent(
-          `I couldn't reach the AI right now. (${String(err).replace(/^Error:\s*/, "")})<br/><span class="meta">Try again, or use the quick replies below.</span>`
-        );
+        addAgent(`I couldn't reach the AI right now.<br/><span class="meta">${escapeHtml(String(err.message || err))}</span>`);
       }
-      break;
     }
   }
 }
@@ -325,26 +270,20 @@ function renderLeadForm() {
 
   const form = $feed.querySelector("#influmo-lead");
   if (form) {
-    form.addEventListener(
-      "submit",
-      async (e) => {
-        e.preventDefault();
-        const data = Object.fromEntries(new FormData(form).entries());
-        if (data.name) localStorage.setItem("influmo_name", data.name);
-        if (data.role) localStorage.setItem("influmo_role", data.role);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+      if (data.name) localStorage.setItem("influmo_name", data.name);
+      if (data.role) localStorage.setItem("influmo_role", data.role);
 
-        const stopTyping = showTyping();
-        setTimeout(() => stopTyping(), 700);
-        addAgent(
-          `Thanks ${data.name || "there"}! You’re on the list. We’ll email **${data.email}** when your invite is ready. Meanwhile, follow us on Instagram: <a href="${CONFIG.instagram}" target="_blank" rel="noopener">influmo.in</a>.`
-        );
-      },
-      { once: true }
-    );
+      const stopTyping = showTyping();
+      setTimeout(() => stopTyping(), 700);
+      addAgent(`Thanks ${data.name || "there"}! You’re on the list. We’ll email **${data.email}** when your invite is ready. Meanwhile, follow us on Instagram: <a href="${CONFIG.instagram}" target="_blank" rel="noopener">influmo.in</a>.`);
+    }, { once: true });
   }
 }
 
-/* ========= Markdown Helper ========= */
+/* ========= Markdown helper ========= */
 function mdToHtml(md) {
   return escapeHtml(md)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
