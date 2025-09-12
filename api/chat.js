@@ -1,7 +1,7 @@
-// /api/chat.js — Vercel serverless (Node runtime only; no DOM)
+// /api/chat.js — Vercel serverless (Node runtime; no DOM)
 
 export default async function handler(req, res) {
-  // CORS (allow both www/non-www, previews, etc.)
+  // CORS (works for www/non-www, previews, GitHub Pages embedding, etc.)
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -14,14 +14,14 @@ export default async function handler(req, res) {
   try {
     const {
       messages,
-      // 3.5 is deprecated — use a current, low-cost model:
+      // Use a current, low-cost model. (3.5 is deprecated.)
       model = "gpt-4o-mini",
       temperature = 0.4,
       max_tokens = 300,
     } = req.body || {};
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    const projectId = process.env.OPENAI_PROJECT_ID;
+    const apiKey    = process.env.OPENAI_API_KEY;      // sk-proj-...
+    const projectId = process.env.OPENAI_PROJECT_ID;   // proj_...
 
     if (!apiKey)    return res.status(500).json({ error: "OPENAI_API_KEY missing" });
     if (!projectId) return res.status(500).json({ error: "OPENAI_PROJECT_ID missing" });
@@ -39,7 +39,7 @@ You are Influmo Concierge — warm, clear, concise.
     // Project-scoped endpoint (required for sk-proj keys)
     const endpoint = `https://api.openai.com/v1/projects/${projectId}/chat/completions`;
 
-    // 15s safety timeout so requests never hang
+    // 15s timeout so requests never hang
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
 
