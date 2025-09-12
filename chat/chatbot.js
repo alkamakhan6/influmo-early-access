@@ -58,16 +58,50 @@ async function askAI(userText) {
   aiThread.push({ role: "user", content: userText });
   const lastTurns = aiThread.slice(-8);
 
-  const rsp = await fetch(API_CHAT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      temperature: 0.4,
-      max_tokens: 300,
-      messages: lastTurns
-    })
-  });
+  // Log the URL so we’re 100% sure which endpoint it hit
+  console.log("[Influmo Chat] POST", API_CHAT);
+
+  let rsp, raw;
+  try {
+    rsp = await fetch(API_CHAT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature: 0.4,
+        max_tokens: 300,
+        messages: lastTurns
+      })
+    });
+    raw = await rsp.text();               // <- capture raw body always
+  } catch (netErr) {
+    console.error("[Influmo Chat] Network error:", netErr);
+    throw new Error("Network error to API (fetch failed)");
+  } catch (err) {
+  stopTyping();
+  console.error("[Influmo Chat] AI error:", err);
+  addAgent(
+    `I couldn't reach the AI right now.<br/><span class="meta">${escapeHtml(String(err.message || err))}</span>`
+  );
+}
+
+
+  // Try to parse JSON; fall back to raw text
+  let data = {};
+  try { data = raw ? JSON.parse(raw) : {}; } catch { data = { raw }; }
+
+  if (!rsp.ok) {
+    const detail = data?.detail || data?.error || data?.raw || `HTTP ${rsp.status}`;
+    console.error("[Influmo Chat] API error:", { status: rsp.status, detail, raw });
+    // surface full detail to the UI so we can see it
+    throw new Error(`HTTP ${rsp.status} • ${detail}`);
+  }
+
+  const reply = data?.message?.content || "Sorry—no reply.";
+  aiThread.push({ role: "assistant", content: reply });
+  return { reply, usage: data?.usage };
+}
+
 
   const data = await rsp.json().catch(() => ({}));
   if (!rsp.ok) {
