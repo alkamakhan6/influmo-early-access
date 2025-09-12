@@ -150,7 +150,6 @@ function addUser(text) {
   STATE.thread.push(msg);
   renderMessage(msg);
   persist("msg", msg);
-  logMessage("user", text);
 }
 
 function renderMessage({ role, text, html }) {
