@@ -56,7 +56,8 @@ function canUseAI(limit = 20) {
 }
 
 /* ========= API Endpoint ========= */
-const API_CHAT = "/api/chat";
+const API_CHAT = "https://influmo-soon.vercel.app/api/chat";
+
 
 /* ========= AI Caller (timeout + robust errors) ========= */
 async function askAI(userText) {
