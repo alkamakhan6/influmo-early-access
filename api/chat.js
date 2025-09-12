@@ -1,16 +1,21 @@
-// api/chat.js — serverless function (Node environment; no document/window)
+// /api/chat.js — Vercel serverless (Node runtime only; no DOM)
 
 export default async function handler(req, res) {
+  // CORS (allow both www/non-www, previews, etc.)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") return res.status(200).end();
+
   if (req.method !== "POST") {
-    // optional: allow OPTIONS for CORS/preflight
-    if (req.method === "OPTIONS") return res.status(200).end();
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
     const {
       messages,
-      model = "gpt-3.5-turbo",
+      // 3.5 is deprecated — use a current, low-cost model:
+      model = "gpt-4o-mini",
       temperature = 0.4,
       max_tokens = 300,
     } = req.body || {};
@@ -18,9 +23,11 @@ export default async function handler(req, res) {
     const apiKey = process.env.OPENAI_API_KEY;
     const projectId = process.env.OPENAI_PROJECT_ID;
 
-    if (!apiKey)  return res.status(500).json({ error: "OPENAI_API_KEY missing" });
+    if (!apiKey)    return res.status(500).json({ error: "OPENAI_API_KEY missing" });
     if (!projectId) return res.status(500).json({ error: "OPENAI_PROJECT_ID missing" });
-    if (!messages?.length) return res.status(400).json({ error: "messages required" });
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: "messages required" });
+    }
 
     const SYSTEM_PROMPT = `
 You are Influmo Concierge — warm, clear, concise.
@@ -29,7 +36,12 @@ You are Influmo Concierge — warm, clear, concise.
 - Contact: help@influmo.in, +91 9692350383, influmo.in
 `.trim();
 
+    // Project-scoped endpoint (required for sk-proj keys)
     const endpoint = `https://api.openai.com/v1/projects/${projectId}/chat/completions`;
+
+    // 15s safety timeout so requests never hang
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
 
     const rsp = await fetch(endpoint, {
       method: "POST",
@@ -43,25 +55,30 @@ You are Influmo Concierge — warm, clear, concise.
         max_tokens: Math.min(max_tokens, 400),
         messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
       }),
+      signal: controller.signal,
+    }).catch(() => {
+      throw new Error("Network to OpenAI failed or timed out");
     });
 
-    const text = await rsp.text();
+    clearTimeout(timer);
+
+    const raw = await rsp.text();
     let data;
-    try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    try { data = raw ? JSON.parse(raw) : {}; } catch { data = { raw }; }
 
     if (!rsp.ok) {
       return res.status(rsp.status).json({
         error: "OpenAI error",
-        detail: data?.error?.message || data?.raw || text,
+        detail: data?.error?.message || data?.raw || raw || `HTTP ${rsp.status}`,
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       message: data.choices?.[0]?.message || null,
       usage: data.usage || {},
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error", detail: String(err) });
+    console.error("[/api/chat] Server error:", err);
+    return res.status(500).json({ error: "Server error", detail: String(err?.message || err) });
   }
 }
