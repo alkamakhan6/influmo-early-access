@@ -56,7 +56,13 @@ function canUseAI(limit = 20) {
 }
 
 /* ========= API Endpoint ========= */
-const API_CHAT = "https://influmo-soon.vercel.app/api/chat";
+// Call Vercel function when running on influmo.in / GitHub Pages,
+// fall back to relative when the site itself is on Vercel.
+const API_CHAT =
+  (location.hostname.includes('influmo.in') || location.hostname.includes('github.io'))
+    ? 'https://influmo-soon.vercel.app/api/chat'
+    : '/api/chat';
+
 
 
 /* ========= AI Caller (timeout + robust errors) ========= */
