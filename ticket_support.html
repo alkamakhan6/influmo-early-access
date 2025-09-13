@@ -5,6 +5,7 @@
   <title>Influmo — Support</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
+  <meta name="description" content="Create a support ticket for Influmo. We’ll email you updates." />
   <style>
     :root{
       --bg:#0B0B0D; --panel:#121216; --muted:#1a1a1f; --text:#F5F5F7;
@@ -50,9 +51,14 @@
     /* Actions & messages */
     .actions{grid-column:1 / -1;display:flex;gap:10px;justify-content:flex-end;margin-top:4px}
     .btn{background:var(--bg);color:var(--text);border:1px solid var(--gold);
-      border-radius:10px;padding:10px 14px;cursor:pointer}
+      border-radius:10px;padding:10px 14px;cursor:pointer;position:relative}
     .btn.secondary{border-color:#333;color:#bbb}
     .btn[disabled]{opacity:.6;cursor:not-allowed}
+    .btn[data-loading="1"]::after{
+      content:"";position:absolute;right:12px;top:50%;width:14px;height:14px;transform:translateY(-50%);
+      border:2px solid #999;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite
+    }
+    @keyframes spin{to{transform:translateY(-50%) rotate(360deg)}}
 
     .msg{grid-column:1 / -1;margin-top:6px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);display:none}
     .msg.ok{border-color:var(--ok);color:#b1f3c8}
@@ -91,23 +97,23 @@
         <div class="form-grid">
           <div class="field">
             <label for="name">Your name</label>
-            <input id="name" placeholder="Your full name" autocomplete="name" />
+            <input id="name" placeholder="Your full name" autocomplete="name" required />
           </div>
 
           <div class="field">
             <label for="email">Email</label>
             <input id="email" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email"
-                   pattern="^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" />
+                   pattern="^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" required />
           </div>
 
           <div class="field field--span-2">
             <label for="summary">Issue (one sentence)</label>
-            <textarea id="summary" placeholder="Card charged but payment pending"></textarea>
+            <textarea id="summary" placeholder="eg. Card charged but payment pending" maxlength="500" required></textarea>
           </div>
 
           <div class="field">
             <label for="priority">Priority</label>
-            <select id="priority">
+            <select id="priority" aria-label="Priority">
               <option value="normal" selected>Normal</option>
               <option value="high">High</option>
               <option value="urgent">Urgent</option>
@@ -147,6 +153,18 @@
     const okMsg = $('okMsg'), errMsg = $('errMsg');
     const submitBtn = $('submitBtn'), cancelBtn = $('cancelBtn');
 
+    // Basic sanitizer for dynamic text
+    const esc = (s='') => String(s).replace(/[&<>"']/g, m =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+    // Enter key submits
+    ['name','email','summary'].forEach(id=>{
+      const el = $(id);
+      el && el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitBtn.click(); }
+      });
+    });
+
     cancelBtn.onclick = () => history.length > 1 ? history.back() : location.href = '/index.html';
 
     submitBtn.onclick = async () => {
@@ -164,13 +182,14 @@
       if (!name || !email || !summary) {
         errMsg.textContent = 'Please fill name, email, and issue.';
         errMsg.style.display = 'block';
+        errMsg.focus?.();
         return;
       }
 
-      submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
+      // disable + spinner
+      submitBtn.disabled = true; submitBtn.dataset.loading = "1"; submitBtn.textContent = 'Submitting…';
 
       try {
-        // attach your own session id if you have one
         const user_id = window.INFLUMO_USER_ID || undefined;
 
         const r = await fetch('/api/support_ticket', {
@@ -178,35 +197,38 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, summary, priority, channel, user_id })
         });
-        const data = await r.json();
 
-        if (!r.ok || !data.ok) throw new Error(data.error || 'Failed to create ticket');
+        let data = {};
+        try { data = await r.json(); } catch {}
+        if (!r.ok || !data.ok) {
+          throw new Error(data?.error || `Request failed (${r.status})`);
+        }
 
-        const shortId = String(data.ticket_id).slice(0,8);
-        okMsg.innerHTML = `✅ Ticket created: <b id="ticketId">${shortId}…</b> 
-          &nbsp;<button class="btn secondary" id="copyBtn" type="button" style="padding:6px 10px">Copy ID</button><br/>
-          We’ll email updates to <b>${email}</b>.`;
+        const shortId = String(data.ticket_id || '').slice(0,8);
+        okMsg.innerHTML =
+          `✅ Ticket created: <b id="ticketId">${esc(shortId)}…</b>
+           &nbsp;<button class="btn secondary" id="copyBtn" type="button" style="padding:6px 10px">Copy ID</button><br/>
+           We’ll email updates to <b>${esc(email)}</b>.`;
         okMsg.style.display = 'block';
+        document.getElementById('copyBtn')?.focus();
 
         // copy button
-        setTimeout(()=> {
-          const copyBtn = document.getElementById('copyBtn');
-          if (copyBtn && navigator.clipboard) {
-            copyBtn.onclick = async () => {
-              await navigator.clipboard.writeText(String(data.ticket_id));
-              copyBtn.textContent = 'Copied!';
-              setTimeout(()=>copyBtn.textContent='Copy ID', 1200);
-            };
-          }
-        }, 0);
+        document.getElementById('copyBtn')?.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(String(data.ticket_id || ''));
+            const btn = document.getElementById('copyBtn');
+            if (btn) { btn.textContent = 'Copied!'; setTimeout(()=> btn.textContent='Copy ID', 1200); }
+          } catch {}
+        });
 
-        // reset only the summary for quick follow-ups
+        // reset only the summary for follow-ups
         $('summary').value = '';
       } catch (e) {
         errMsg.textContent = 'Could not create ticket. Please email help@influmo.in';
         errMsg.style.display = 'block';
+        errMsg.focus?.();
       } finally {
-        submitBtn.disabled = false; submitBtn.textContent = 'Submit ticket';
+        submitBtn.disabled = false; submitBtn.dataset.loading = "0"; submitBtn.textContent = 'Submit ticket';
       }
     };
   </script>
