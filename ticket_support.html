@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Influmo — Support</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <style>
+    :root{
+      --bg:#0B0B0D; --panel:#121216; --muted:#1a1a1f; --text:#F5F5F7;
+      --line:#2a2a2f; --gold:#D4AF37; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
+      --shadow: 0 16px 40px rgba(0,0,0,.5);
+    }
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+      font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif}
+
+    /* Page layout */
+    .wrap{min-height:100%;display:grid;place-items:center;padding:24px}
+    .card{width:min(720px,100%);background:var(--panel);border:1px solid var(--line);
+      border-radius:16px;box-shadow:var(--shadow);padding:24px 24px 20px}
+
+    /* Header */
+    .head{display:grid;grid-template-columns:48px 1fr;gap:12px;align-items:center;margin-bottom:8px}
+    .logo{width:48px;height:48px;border-radius:50%;border:1px solid var(--gold);
+      display:grid;place-items:center;font-weight:800}
+    h1{font-size:18px;margin:0}
+    .sub{margin:4px 0 0;color:#c9c9cf}
+
+    /* Form grid */
+    .form{margin-top:12px}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field--span-2{grid-column:1 / -1}
+    label{font-size:13px;color:#d6d6dc}
+    input,textarea,select{
+      width:100%;background:var(--muted);color:var(--text);border:1px solid var(--line);
+      border-radius:10px;padding:10px 12px;font:14px/1.35 system-ui;outline:none
+    }
+    input:focus,textarea:focus,select:focus{border-color:#3a3a40; box-shadow:0 0 0 1px #3a3a40}
+    textarea{min-height:104px;resize:vertical}
+
+    /* Actions & messages */
+    .actions{grid-column:1 / -1;display:flex;gap:10px;justify-content:flex-end;margin-top:4px}
+    .btn{background:var(--bg);color:var(--text);border:1px solid var(--gold);
+      border-radius:10px;padding:10px 14px;cursor:pointer}
+    .btn.secondary{border-color:var(--line);color:#bbb}
+    .btn[disabled]{opacity:.6;cursor:not-allowed}
+
+    .msg{grid-column:1 / -1;margin-top:6px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);display:none}
+    .msg.ok{border-color:var(--ok);color:#b1f3c8}
+    .msg.err{border-color:var(--err);color:#fecaca}
+
+    .fine{grid-column:1 / -1;font-size:12px;color:#a6a6ad;margin-top:8px}
+
+    /* Utility */
+    .hidden{display:none !important}
+
+    /* Mobile */
+    @media (max-width: 640px){ .form-grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="panel">
+      <div class="head">
+        <div class="logo">V</div>
+        <div>
+          <h1>Create a support ticket</h1>
+          <p class="sub">We’ll email you updates. Typical first response: under 24 hours.</p>
+        </div>
+      </div>
+
+      <!-- Honeypot (spam trap) -->
+      <input type="text" id="website" class="hidden" autocomplete="off" tabindex="-1" aria-hidden="true" />
+
+      <div class="form">
+        <div class="form-grid">
+          <div class="field">
+            <label for="name">Your name</label>
+            <input id="name" placeholder="Your full name" autocomplete="name" />
+          </div>
+
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email"
+                   pattern="^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" />
+          </div>
+
+          <div class="field field--span-2">
+            <label for="summary">Issue (one sentence)</label>
+            <textarea id="summary" placeholder="Card charged but payment pending"></textarea>
+          </div>
+
+          <div class="field">
+            <label for="priority">Priority</label>
+            <select id="priority">
+              <option value="normal" selected>Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+
+          <!-- keep channel hidden but set to web -->
+          <input id="channel" type="hidden" value="web" />
+
+          <div class="actions">
+            <button class="btn secondary" id="cancelBtn" type="button">Cancel</button>
+            <button class="btn" id="submitBtn" type="button">Submit ticket</button>
+          </div>
+
+          <div class="msg ok" id="okMsg" aria-live="polite"></div>
+          <div class="msg err" id="errMsg" aria-live="polite"></div>
+
+          <div class="fine">By submitting, you agree we can contact you at the email provided.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Prefill from query string (?name=&email=&summary=&priority=)
+    (function prefill(){
+      const params = new URLSearchParams(location.search);
+      for (const key of ['name','email','summary','priority']) {
+        if (params.has(key)) {
+          const el = document.getElementById(key);
+          if (el) el.value = params.get(key);
+        }
+      }
+    })();
+
+    const $ = id => document.getElementById(id);
+    const okMsg = $('okMsg'), errMsg = $('errMsg');
+    const submitBtn = $('submitBtn'), cancelBtn = $('cancelBtn');
+
+    cancelBtn.onclick = () => history.length > 1 ? history.back() : location.href = '/';
+
+    submitBtn.onclick = async () => {
+      okMsg.style.display = errMsg.style.display = 'none';
+
+      // bot trap
+      if ($('website').value.trim()) return;
+
+      const name = $('name').value.trim();
+      const email = $('email').value.trim();
+      const summary = $('summary').value.trim();
+      const priority = $('priority').value;
+      const channel = $('channel').value || 'web';
+
+      if (!name || !email || !summary) {
+        errMsg.textContent = 'Please fill name, email, and issue.';
+        errMsg.style.display = 'block';
+        return;
+      }
+
+      submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
+
+      try {
+        // attach your own session id if you have one
+        const user_id = window.INFLUMO_USER_ID || undefined;
+
+        const r = await fetch('/api/support_ticket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, summary, priority, channel, user_id })
+        });
+        const data = await r.json();
+
+        if (!r.ok || !data.ok) throw new Error(data.error || 'Failed to create ticket');
+
+        const shortId = String(data.ticket_id).slice(0,8);
+        okMsg.innerHTML = `✅ Ticket created: <b id="ticketId">${shortId}…</b> 
+          &nbsp;<button class="btn secondary" id="copyBtn" type="button" style="padding:6px 10px">Copy ID</button><br/>
+          We’ll email updates to <b>${email}</b>.`;
+        okMsg.style.display = 'block';
+
+        // copy button
+        setTimeout(()=> {
+          const copyBtn = document.getElementById('copyBtn');
+          if (copyBtn && navigator.clipboard) {
+            copyBtn.onclick = async () => {
+              await navigator.clipboard.writeText(String(data.ticket_id));
+              copyBtn.textContent = 'Copied!';
+              setTimeout(()=>copyBtn.textContent='Copy ID', 1200);
+            };
+          }
+        }, 0);
+
+        // reset only the summary for quick follow-ups
+        $('summary').value = '';
+      } catch (e) {
+        errMsg.textContent = 'Could not create ticket. Please email help@influmo.in';
+        errMsg.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false; submitBtn.textContent = 'Submit ticket';
+      }
+    };
+  </script>
+</body>
+</html>
