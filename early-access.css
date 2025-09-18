@@ -1,0 +1,196 @@
+/* =========================================================
+   early-access.css — Scoped, stable layout for Early Access
+   - Only affects pages with <body class="ea">
+   - Safe on iOS (no input zoom, safe-area padding)
+   - Resists late script/CSS reflows (no zoom/transform)
+   ========================================================= */
+
+/* Page scope + iOS text zoom guard */
+.ea {
+  background: var(--bg, #0b0b0c);
+  color: var(--text, #e6e6eb);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Prevent rogue scripts from scaling the page */
+.ea {
+  transform: none !important;
+  zoom: 1 !important;
+}
+
+/* Safe-area padding for devices with notches */
+.ea .nav, .ea .container, .ea .footer {
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+
+/* Container */
+.ea .container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* Top nav (EA page only) */
+.ea .nav {
+  border-bottom: 1px solid var(--border, #2a2a2e);
+  background: #0e0e10;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.ea .nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ea .brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+.ea .subtle { color: var(--muted, #b7b7bd); }
+.ea .subtle:hover { color: var(--text, #e6e6eb); }
+
+/* Hero grid */
+.ea .hero {
+  display: grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap: 24px;
+  padding-top: 40px;
+}
+@media (max-width: 900px) { .ea .hero { grid-template-columns: 1fr; } }
+
+/* Typography */
+.ea .h1 {
+  font-size: 40px;
+  line-height: 1.12;
+  margin: 8px 0 8px;
+  letter-spacing: .2px;
+}
+.ea .h2 { font-size: 22px; margin: 0 0 8px; }
+.ea .lead { color: #e7e7e7; margin-bottom: 16px; }
+
+/* Card */
+.ea .card {
+  background: linear-gradient(180deg, #141414, #0e0e0e);
+  border: 1px solid var(--border, #2a2a2e);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+
+/* Form */
+.ea .form { display: grid; gap: 10px; margin-top: 8px; }
+
+.ea input,
+.ea select,
+.ea button { font: inherit; }
+
+.ea input,
+.ea select {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #272727;
+  background: #101010;
+  color: #fafafa;
+  min-height: 44px;
+  font-size: 16px; /* prevents iOS zoom-on-focus */
+}
+
+.ea button.btn {
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--gold, #e6b65c);
+  background: transparent;
+  color: var(--gold, #e6b65c);
+  cursor: pointer;
+  transition: all .22s ease;
+  min-height: 44px;
+}
+.ea button.btn:hover { background: rgba(230,182,92,.12); }
+
+/* Steps + honeypot (scoped) */
+.ea [data-step][hidden] { display: none !important; }
+.ea .honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+/* Step layouts */
+.ea #step1,
+.ea #step2 {
+  display: grid;
+  grid-template-columns: 1fr auto; /* input + button row */
+  gap: 10px;
+  align-items: center;
+}
+.ea #step2 { grid-template-columns: 1fr; } /* stack role/username/opt-in */
+.ea #joinBtn { width: 100%; }
+
+/* Proof + benefits */
+.ea .proof { margin-top: 14px; }
+.ea .count { font-size: 18px; margin-bottom: 4px; }
+.ea .muted { color: var(--muted, #b7b7bd); }
+.ea .benefits { margin: 6px 0 0 18px; }
+.ea .benefits li { margin: 6px 0; }
+
+/* “Recent joins” bar (animation only if JS enables it) */
+.ea .recent-bar {
+  border: 1px solid var(--border, #2a2a2e);
+  background: #101010;
+  border-radius: 9999px;
+  overflow: hidden;
+  padding: 6px 0;
+  margin-top: 10px;
+}
+.ea .recent-track {
+  display: inline-flex;
+  gap: 12px;
+  align-items: center;
+  padding-left: 16px;
+  white-space: nowrap;
+  animation: none; /* JS will set: marquee 28s linear infinite */
+}
+.ea .recent-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #0d0d0d;
+  border: 1px solid var(--border, #2a2a2e);
+  border-radius: 9999px;
+  padding: 6px 10px;
+  color: var(--muted, #b7b7bd);
+  font-size: 12px;
+}
+.ea .recent-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #2ecc71;
+  box-shadow: 0 0 6px rgba(46,204,113,.8);
+}
+@keyframes marquee { 0% { transform: translateX(0) } 100% { transform: translateX(-50%) } }
+@media (prefers-reduced-motion: reduce) { .ea .recent-track { animation: none; } }
+
+/* Footer */
+.ea .footer {
+  border-top: 1px solid var(--border, #2a2a2e);
+  padding: 28px 24px;
+  color: var(--muted, #b7b7bd);
+}
+
+/* Compact tweaks */
+@media (max-width: 520px) {
+  .ea .container { padding: 16px; }
+  .ea .card { padding: 14px; border-radius: 14px; }
+  .ea .h1 { font-size: 32px; line-height: 1.15; }
+  .ea .lead { font-size: 15px; }
+  .ea #step1 { grid-template-columns: 1fr; }
+  .ea #step1 .btn { width: 100%; }
+}
